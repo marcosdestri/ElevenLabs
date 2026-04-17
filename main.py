@@ -1,4 +1,4 @@
-"""Backward-compatible entrypoint — delegates to ``voice_agent.cli``."""
+"""Run the Voice Customer Agent CLI (delegates to ``voice_agent.cli``)."""
 
 from voice_agent.cli import main
 

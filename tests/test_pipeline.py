@@ -18,13 +18,13 @@ def test_run_single_turn_order_and_io(
     monkeypatch.setenv("ELEVENLABS_API_KEY", "test-eleven-key")
 
     out_mp3 = tmp_path / "test_out.mp3"
-    out_mp3.write_bytes(b"")  # synthesize_voice_file mocked return path
+    out_mp3.write_bytes(b"")
 
     with patch(
         "voice_agent.pipeline.generate_response",
         return_value="Assistant reply.",
     ) as mock_llm, patch(
-        "voice_agent.pipeline.synthesize_voice_file",
+        "voice_agent.pipeline.generate_voice",
         return_value=out_mp3,
     ) as mock_tts:
         run_single_turn(

@@ -1,4 +1,4 @@
-"""CLI entrypoint."""
+"""Command-line entry: run one customer turn and exit with a clear status code."""
 
 from __future__ import annotations
 

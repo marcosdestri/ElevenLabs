@@ -1,4 +1,4 @@
-"""Centralized configuration and environment loading."""
+"""Configuration: paths, API defaults, and environment loading."""
 
 from __future__ import annotations
 
@@ -11,12 +11,15 @@ PACKAGE_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = PACKAGE_ROOT.parent
 DOTENV_PATH = PROJECT_ROOT / ".env"
 
+# ElevenLabs REST
 ELEVENLABS_TTS_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
 DEFAULT_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"
 VOICE_SETTINGS = {"stability": 0.5, "similarity_boost": 0.75}
-DEFAULT_OUTPUT = PROJECT_ROOT / "voice_reply.mp3"
+# Named output: clearly the *voiced* assistant response, not a generic blob
+DEFAULT_OUTPUT = PROJECT_ROOT / "voice_response.mp3"
 REQUEST_TIMEOUT_S = 60
 
+# OpenAI Chat Completions
 DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
 SYSTEM_PROMPT = (
     "You are a helpful voice assistant. Reply in clear, natural language suitable "
@@ -25,7 +28,7 @@ SYSTEM_PROMPT = (
 
 
 def load_local_env() -> None:
-    """Load ``.env`` from project root (independent of shell cwd)."""
+    """Load `.env` from project root so runs do not depend on shell cwd."""
     load_dotenv(DOTENV_PATH)
 
 
