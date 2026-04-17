@@ -1,0 +1,413 @@
+{
+  "name": "Enrich WaitingRoom Latam",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "REDACTED_WEBHOOK_PATH",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        96
+      ],
+      "id": "4127bd37-76b6-4e80-a87f-5c897350a0c9",
+      "name": "Webhook",
+      "webhookId": "REDACTED"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"challenge\": \"{{ $json.body.challenge }}\"\n} ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        224,
+        96
+      ],
+      "id": "1a07f4e6-4626-4ae1-b96f-9c44eb75c02c",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "resource": "item",
+        "itemId": "={{ $json.body.event.pulseId }}"
+      },
+      "type": "@mondaydotcomorg/n8n-nodes-bb-monday-com.bbMondayCom",
+      "typeVersion": 1,
+      "position": [
+        448,
+        96
+      ],
+      "id": "2f13853d-7d6d-4db6-8e18-7c465f17b4c6",
+      "name": "Get item values",
+      "credentials": {
+        "_note": "Set credentials inside n8n; not committed here"
+      }
+    },
+    {
+      "parameters": {
+        "query": "=SELECT * \nFROM bigbrain.L2.RAW_SALESFORCE_OPPORTUNITIES a\n--limit 10\nWHERE OPPORTUNITY_ID = '{{ $json.opportunityID }}';"
+      },
+      "type": "@mondaydotcomorg/n8n-nodes-bb-snowflake.bbBigBrainSnowflake",
+      "typeVersion": 1,
+      "position": [
+        896,
+        96
+      ],
+      "id": "8ab61818-8b0e-47fa-9d88-f65f11f8bcd8",
+      "name": "Get Opportunity info",
+      "credentials": {
+        "_note": "Set credentials inside n8n; not committed here"
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Acessamos o array de colunas que vem do nó do Monday\nconst columns = items[0].json.column_values;\n\n// 2. Procuramos o objeto dentro do array que possui o id \"text1\"\nconst targetColumn = columns.find(column => column.id === \"text1\");\n\n// 3. Retornamos o valor do campo 'text' se ele for encontrado\nreturn {\n  opportunityID: targetColumn ? targetColumn.text : \"ID não encontrado\"\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        96
+      ],
+      "id": "f052bb93-8e46-49b8-87c9-f1e963675b42",
+      "name": "Split opportunity ID"
+    },
+    {
+      "parameters": {
+        "query": "=SELECT b.gong__call_id, b.* \nFROM bigbrain.L2.RAW_SALESFORCE_OPPORTUNITIES a\ninner join bigbrain.L2.RAW_SALESFORCE_CONVERSATION b\n on a.OPPORTUNITY_ID = b.primary_opportunity\nwhere a.OPPORTUNITY_ID = '{{ $json.rows[0].OPPORTUNITY_ID }}'\norder by b.gong__call_end_timestamp desc\nlimit 1; "
+      },
+      "type": "@mondaydotcomorg/n8n-nodes-bb-snowflake.bbBigBrainSnowflake",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        96
+      ],
+      "id": "49b4f3e0-2e63-4b19-9c06-34f6a847e3da",
+      "name": "Get last conversation ID",
+      "credentials": {
+        "_note": "Set credentials inside n8n; not committed here"
+      }
+    },
+    {
+      "parameters": {
+        "query": "=select TRANSCRIPT\nfrom bigbrain.L2.GONG_CONVERSATIONS_W_TRANSCRIPT_AND_OPPORTUNITIES\nwhere CONVERSATION_ID = '{{ $json.rows[0].GONG__CALL_ID }}';"
+      },
+      "type": "@mondaydotcomorg/n8n-nodes-bb-snowflake.bbBigBrainSnowflake",
+      "typeVersion": 1,
+      "position": [
+        1568,
+        0
+      ],
+      "id": "3c742da9-f4f7-4cdf-b901-b6558ad45e0f",
+      "name": "Get Call Transcript",
+      "credentials": {
+        "_note": "Set credentials inside n8n; not committed here"
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2ee0eee2-0099-47f2-856e-54a7190a0804",
+              "leftValue": "={{ $json.rows }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1344,
+        96
+      ],
+      "id": "1f7df900-cb0b-4e25-8330-18b608bf16bf",
+      "name": "Validate if have gong calls on SFDC"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        2016,
+        240
+      ],
+      "id": "bb295c1d-44e4-41a7-9107-b4cafc0542e9",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "_note": "Set credentials inside n8n; not committed here"
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Função auxiliar para converter milissegundos (start) em formato M:SS\nconst formatTime = (ms) => {\n  const totalSeconds = Math.floor(ms / 1000);\n  const minutes = Math.floor(totalSeconds / 60);\n  const seconds = totalSeconds % 60;\n  return `${minutes}:${seconds.toString().padStart(2, '0')}`;\n};\n\n// 2. Acessamos a estrutura: rows[0] -> TRANSCRIPT\nconst rows = items[0].json.rows[0];\nconst transcriptBlocks = rows.TRANSCRIPT;\n\n// 3. Mapeamos os blocos mantendo o ID original do locutor\nconst formattedTranscript = transcriptBlocks.map(block => {\n  // Pega o tempo de início da primeira frase do bloco de fala\n  const startTime = formatTime(block.sentences[0].start);\n  \n  // Usa o speakerId original do JSON\n  const speakerId = block.speakerId;\n\n  // Une todas as frases (text) deste bloco com espaço\n  const text = block.sentences.map(s => s.text).join(' ');\n\n  // Formata conforme o modelo desejado: \"Tempo | ID \\n Texto\"\n  return `${startTime} | ${speakerId}\\n${text}`;\n}).join('\\n\\n'); // Adiciona linha em branco entre blocos de fala\n\n// 4. Retorna um único item com o texto completo\nreturn {\n  transcript_final: `Transcript\\n\\n${formattedTranscript}`\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        0
+      ],
+      "id": "3a3c7ea7-b541-4984-9b24-3d99a9138cdd",
+      "name": "concatenate the transcript"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Você é um especialista em vendas e consultor estratégico utilizando a metodologia Command of the Message® e o framework MEDDPICC. Seu objetivo é apoiar no processo de vendas da plataforma monday.com.\n1. Definições Fundamentais\nCommand of the Message: Ser capaz de definir soluções para os problemas dos clientes de forma que diferencie a empresa dos concorrentes e permita cobrar um prêmio.\nHabilidades Críticas: 1. Descobrir necessidades do cliente; 2. Articular Valor e Diferenciação; 3. Negociar Valor.\n2. O Value Framework (Estrutura de Valor)\nSempre baseie suas conversas e estratégias nos componentes abaixo:\nBefore Scenarios (Cenários Anteriores): O estado indesejável atual, pontos de dor e metas não atingidas.\nNegative Consequences (Consequências Negativas): Os impactos negativos (operacionais ou financeiros) que resultam do cenário atual.\nAfter Scenarios (Cenários Posteriores): Visão de como a vida do comprador será melhor após resolver os problemas.\nPositive Business Outcomes (PBOs): Os benefícios reais de desempenho de negócio que resultam do cenário posterior.\nRequired Capabilities (Capacidades Requeridas): Requisitos mínimos da solução para alcançar os PBOs.\nMetrics: KPIs que medem o sucesso da solução.\nHow We Do It (HWDI): Como a monday.com satisfaz as capacidades requeridas.\nBetter: Como fazemos isso de forma superior ou diferente da concorrência.\nProof Points: Evidências verificáveis (casos de sucesso) de que entregamos o que prometemos.\n3. Proposta de Valor monday.com (Value Drivers)\nUtilize estes três pilares principais de valor:\nAumentar Eficiência Operacional: Simplificar processos em uma única plataforma.\nControle de Liderança e Transparência: Visibilidade imediata sobre a execução da estratégia.\nTradução da Estratégia em Execução: Implementar metas organizacionais de forma eficaz entre unidades de negócio.\n4. Diferenciadores Defensíveis da monday.com\nDestaque estas características para vencer a concorrência:\nWorkflows Flexíveis e Padronizados: Facilidade de escala e personalização.\nProduto que as Pessoas Amam Usar: Alta adoção e clareza visual.\nAdoção Rápida (Speed-to-Value): Implementação ágil com retorno rápido.\nPlataforma Aberta e Extensível: Conecta sistemas e elimina silos.\nAutomações & IA: Redução de esforço manual por usuários não técnicos.\nSegurança e Governança: Conformidade com padrões globais.\n5. Qualificação de Oportunidades (MEDDPICC)\nAvalie cada negócio com base nestes critérios:\nM (Metrics): Medições quantificáveis dos benefícios.\nE (Economic Buyer): Quem dá o \"sim\" final.\nD (Decision Criteria): Requisitos formais de solução.\nD (Decision Process): Como o cliente avalia e compra.\nP (Paper Process): Processo de assinaturas e aprovações.\nI (Identified Pain): O catalisador para a mudança.\nC (Champion): Pessoa interna com poder que vende por nós.\nC (Competition): Forças e fraquezas dos concorrentes.\n\nSuas instruções de trabalho:\n### 1. EXTRAÇÃO MEDDPICC\nPara cada letra, identifique o conteúdo e classifique como [IDENTIFICADO], [PARCIAL] ou [GAP]:\n- Metrics (M): KPIs e provas financeiras/operacionais.\n- Economic Buyer (E): Quem tem o poder da caneta.\n- Decision Criteria (D): Requisitos técnicos e de negócio.\n- Decision Process (D): O caminho para a aprovação.\n\n- Paper Process (P): Jurídico e compras.\n- Identified Pain (I): A dor real e suas consequências negativas.\n- Champion (C): Seu aliado interno.\n- Competition (C): Quem são e o que o cliente acha deles.\n\n### 2. VALUE-BASED CONVERSATION (VBC)\nPara cada parte da venda de valor, identifique o conteúdo e classifique como [IDENTIFICADO], [PARCIAL] ou [GAP]:\n\nBefore Scenarios (Cenários Anteriores): \nNegative Consequences (Consequências Negativas): \nAfter Scenarios (Cenários Posteriores): \nPositive Business Outcomes (PBOs): \nRequired Capabilities (Capacidades Requeridas):\nMetrics: KPIs que medem o sucesso da solução.\n\n### 3. PLANO DE ATAQUE DO SOLUTIONS ENGINEER\n\nCom base na análise, sugira:\n\n- Diferenciais Chave: \n- Como demonstrar os Required Capabilities: Sugira casos de uso práticos para a demo que provem que a monday possui as capacidades exigidas.\n\n### 4. TRAP SETTING QUESTIONS\n\nCrie 3 a 5 perguntas estratégicas para a próxima fase do ciclo de vendas, focadas em expor limitações da concorrência e reforçar os diferenciais da monday.com\n\n\n### 5. IDIOMA DO OUTPUT\nO idioma do output deve ser o mesmo da transcrição\n\n###INÍCIO DA TRANSCRIÇÃO\n\n{{ $json.transcript_final }}",
+        "options": {
+          "maxIterations": 20
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        2016,
+        0
+      ],
+      "id": "bbf782e3-3950-467c-9470-343c459f6acd",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "resource": "item",
+        "operation": "addUpdate",
+        "itemId": "={{ $('Webhook').item.json.body.event.pulseId }}",
+        "updateText": "=Automatic update by n8n\n\nNão há nenhuma conversa do gong registrada para essa oportunidade"
+      },
+      "type": "@mondaydotcomorg/n8n-nodes-bb-monday-com.bbMondayCom",
+      "typeVersion": 1,
+      "position": [
+        1568,
+        224
+      ],
+      "id": "f46cce1f-fd8b-478f-96db-3f53bbee8c37",
+      "name": "Add update without agent analysis",
+      "credentials": {
+        "_note": "Set credentials inside n8n; not committed here"
+      }
+    },
+    {
+      "parameters": {
+        "resource": "item",
+        "operation": "addUpdate",
+        "itemId": "={{ $('Webhook').item.json.body.event.pulseId }}",
+        "updateText": "=Automatic update by n8n\n\nAnálise do agente para a Oportunidade  {{ $('Get item values').item.json.name }}\n\n\n{{ $json.output }}\n\n\n\n\nGong call: {{ $('Get last conversation ID').item.json.rows[0].CALL_URL }}\n\n\n"
+      },
+      "type": "@mondaydotcomorg/n8n-nodes-bb-monday-com.bbMondayCom",
+      "typeVersion": 1,
+      "position": [
+        2368,
+        0
+      ],
+      "id": "96a2958b-3871-4bfc-8324-75da866adf11",
+      "name": "Add opty summary as update to item",
+      "credentials": {
+        "_note": "Set credentials inside n8n; not committed here"
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ String($('Webhook').item.json.body.event.pulseId) }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryRedisChat",
+      "typeVersion": 1.5,
+      "position": [
+        2160,
+        240
+      ],
+      "id": "b675abc5-5b78-4bba-883a-a69efc991348",
+      "name": "Redis Chat Memory",
+      "credentials": {
+        "_note": "Set credentials inside n8n; not committed here"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get item values",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get item values": {
+      "main": [
+        [
+          {
+            "node": "Split opportunity ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split opportunity ID": {
+      "main": [
+        [
+          {
+            "node": "Get Opportunity info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Opportunity info": {
+      "main": [
+        [
+          {
+            "node": "Get last conversation ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get last conversation ID": {
+      "main": [
+        [
+          {
+            "node": "Validate if have gong calls on SFDC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Call Transcript": {
+      "main": [
+        [
+          {
+            "node": "concatenate the transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate if have gong calls on SFDC": {
+      "main": [
+        [
+          {
+            "node": "Get Call Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add update without agent analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "concatenate the transcript": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Add opty summary as update to item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add opty summary as update to item": {
+      "main": [
+        []
+      ]
+    },
+    "Redis Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "meta": {
+    "note": "Removed instance metadata for public repo"
+  },
+  "tags": []
+}

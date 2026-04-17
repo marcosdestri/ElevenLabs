@@ -2,15 +2,17 @@
 
 **Demonstrates a scalable, customer-facing voice AI loop**—from what the customer expresses, to a model-generated answer, to spoken audio—so stakeholders can validate the **same integration pattern** that later plugs into STT, CRM, queues, and telephony.
 
+**Together with the section below**, this project also tells an **enterprise orchestration** story: connecting sales data, call transcripts, and AI to update systems automatically—plus how **voice** fits as another channel on top of that intelligence.
+
 ---
 
 **Scan this first (≈30s)**
 
 | | |
 |--|--|
-| **What** | One-turn **voice support** prototype: typed input today; **LLM** + **TTS** out of the box. |
-| **Why** | De-risk **voice + AI** for support, IVR refresh, and automation **before** platform spend. |
-| **Stack** | Python · OpenAI Chat Completions · ElevenLabs · `pytest` (mocked APIs). |
+| **What** | **(1)** One-turn **voice** prototype: input → LLM → TTS → `voice_response.mp3`. **(2)** Sanitized **n8n** export: `docs/workflows/sales-intelligence.json` (monday.com · Snowflake · Gong data · AI). |
+| **Why** | De-risk **voice + AI** and show **multi-system automation** before heavy platform spend. |
+| **Stack** | Python · OpenAI · ElevenLabs · `pytest` · workflow pattern alignable with **n8n** (or similar). |
 
 **Output file:** `voice_response.mp3` (project root).
 
@@ -31,6 +33,47 @@ User Input  →  Response Generation  →  Voice Output
 | **Voice Output** | Render that text as speech customers can hear. | `generate_voice()` in `voice_agent/tts.py` → **`voice_response.mp3`** |
 
 **Orchestration:** `run_single_turn()` in `voice_agent/pipeline.py` runs the three stages in order. **Config:** `voice_agent/settings.py`. **CLI:** `voice_agent/cli.py` or `python main.py` / `python -m voice_agent`.
+
+---
+
+## Real-world use case: Sales Call Intelligence Automation
+
+**Workflow in this repo:** a **sanitized n8n export** of *Enrich WaitingRoom Latam* lives at  
+[`docs/workflows/sales-intelligence.json`](docs/workflows/sales-intelligence.json).  
+Credentials, webhook paths, and sample payloads were **removed or redacted** so the file is safe to share; re-bind secrets inside your own n8n instance.
+
+### What the workflow does (step by step)
+
+1. **Webhook** — A **monday.com** event (e.g. new item in a sales / “waiting room” board) starts the run; **Respond to Webhook** answers the integration handshake.
+2. **Get item values** — Pulls the pulse from monday so downstream steps know the deal context.
+3. **Split opportunity ID** — Code reads the **Salesforce opportunity ID** from the board (so Snowflake queries are keyed correctly).
+4. **Get Opportunity info** — **Snowflake** reads **Salesforce opportunity** data from the warehouse (`RAW_SALESFORCE_OPPORTUNITIES`).
+5. **Get last conversation ID** — Snowflake joins to the latest **Gong-linked** conversation for that opportunity.
+6. **Validate if have gong calls on SFDC** — If there is **no** Gong call on record, the flow posts **Add update without agent analysis** on monday and stops—so the board never looks “silent” without explanation.
+7. **Get Call Transcript** — When a call exists, Snowflake loads the **Gong transcript** for that conversation.
+8. **concatenate the transcript** — Code turns the raw transcript blocks into one clean string for the model.
+9. **AI Agent** (+ **OpenAI Chat Model**, **Redis Chat Memory**) — Runs a **Command of the Message® + MEDDPICC** style prompt: MEDDPICC gaps, value conversation, SE attack plan, trap-setting questions—**in the same language as the transcript**.
+10. **Add opty summary as update to item** — Writes the analysis back to the **monday** item, including a link to the **Gong** call—so the team sees insight **where they already work**.
+
+### Systems involved
+
+| System | Role in this workflow |
+|--------|------------------------|
+| **monday.com** | **Trigger + destination**: board events in, structured updates out. |
+| **Snowflake** | **Data hub**: Salesforce opportunities, Gong conversation IDs, and **call transcripts** (no separate “Gong API” node—the data is already modeled in the warehouse). |
+| **Gong** | **Content**: what was actually said on the call (via transcript tables in Snowflake). |
+| **AI agent (OpenAI in n8n)** | **Reasoning layer**: MEDDPICC / value framing on top of CRM + transcript context. |
+
+### Why this matters for the business
+
+- **Waiting-room deals move faster** — New requests get **automatic enrichment** instead of waiting for a human to open Salesforce, Gong, and monday in three tabs.
+- **Coaching at scale** — MEDDPICC-style output is **repeatable** across many calls, not only when a director has time to listen.
+- **Single source of truth on the board** — Reps and leadership see **one update thread** tied to the opportunity and the call recording.
+
+### How this repo fits
+
+- **`docs/workflows/sales-intelligence.json`** — Shows **multi-system orchestration** the way a Solutions Engineer ships it in **n8n** (nodes, branches, enterprise connectors).
+- **`voice_agent/`** — Same **input → model → output** discipline for **spoken** customer experiences (`voice_response.mp3`); voice becomes another **surface** on top of the same intelligence stack.
 
 ---
 
