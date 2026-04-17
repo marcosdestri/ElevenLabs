@@ -15,7 +15,7 @@ DOTENV_PATH = PROJECT_ROOT / ".env"
 ELEVENLABS_TTS_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
 DEFAULT_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"
 VOICE_SETTINGS = {"stability": 0.5, "similarity_boost": 0.75}
-# Named output: clearly the *voiced* assistant response, not a generic blob
+# Customer-heard artifact (not a generic "output.bin")
 DEFAULT_OUTPUT = PROJECT_ROOT / "voice_response.mp3"
 REQUEST_TIMEOUT_S = 60
 

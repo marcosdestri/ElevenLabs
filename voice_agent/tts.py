@@ -1,4 +1,4 @@
-"""Voice generation: assistant text → spoken audio file (ElevenLabs TTS)."""
+"""Voice output: assistant text → spoken audio file."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from voice_agent import settings
 
 
 def _fetch_tts_audio(text: str, *, voice_id: str = settings.DEFAULT_VOICE_ID) -> bytes:
-    """Call ElevenLabs; return raw MP3 bytes (no disk I/O)."""
+    """HTTP call to the TTS vendor; returns raw MP3 bytes (no file I/O)."""
     url = settings.ELEVENLABS_TTS_URL.format(voice_id=voice_id)
     headers = {
         "xi-api-key": settings.elevenlabs_api_key(),
@@ -37,7 +37,7 @@ def _fetch_tts_audio(text: str, *, voice_id: str = settings.DEFAULT_VOICE_ID) ->
 
 
 def _write_mp3(audio: bytes, path: Path) -> Path:
-    """Persist MP3 bytes to disk."""
+    """Write synthesized bytes to disk."""
     path.write_bytes(audio)
     return path
 
@@ -46,9 +46,10 @@ def generate_voice(
     assistant_text: str,
     output_path: Path | None = None,
 ) -> Path:
-    """Step 3 — Voice: synthesize speech from assistant text and save MP3.
+    """Stage 3 — Voice output: TTS for ``assistant_text`` → MP3 on disk.
 
-    ``assistant_text`` is exactly what the customer would hear read aloud.
+    **Vendor today:** ElevenLabs. Same signature supports another TTS backend
+    if enterprise routing or latency requirements change.
     """
     target = output_path or settings.DEFAULT_OUTPUT
     audio_bytes = _fetch_tts_audio(assistant_text)

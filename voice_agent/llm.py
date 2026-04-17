@@ -1,4 +1,4 @@
-"""Response generation: customer text → assistant text (OpenAI Chat Completions)."""
+"""Response generation: customer text → assistant text."""
 
 from __future__ import annotations
 
@@ -8,15 +8,19 @@ from voice_agent import settings
 
 
 def generate_response(user_message: str, *, client: OpenAI | None = None) -> str:
-    """Step 2 — Response: produce assistant text suitable for text-to-speech.
+    """Stage 2 — Response generation: produce assistant text for TTS.
 
-    In production this layer gains retrieval, tools, and policy; here it is a
-    single Chat Completions call. ``client`` may be injected in tests.
+    **Implementation today:** OpenAI Chat Completions. The same function name and
+    contract can back any LLM provider (Vertex, Azure OpenAI, Anthropic, etc.) or
+    a routing layer—swap the body, keep ``pipeline`` unchanged.
+
+    In production, add retrieval, tools, and policy here. ``client`` is injectable
+    for unit tests.
     """
     api_client = client or OpenAI(api_key=settings.openai_api_key())
     model = settings.openai_model()
 
-    # Call the model with a voice-oriented system prompt
+    # LLM call with a prompt tuned for short, speakable answers
     try:
         completion = api_client.chat.completions.create(
             model=model,
@@ -28,7 +32,7 @@ def generate_response(user_message: str, *, client: OpenAI | None = None) -> str
     except OpenAIError as exc:
         raise RuntimeError(f"OpenAI request failed: {exc}") from exc
 
-    # Extract and normalize text for the TTS step
+    # Normalize text before the voice stage
     text = completion.choices[0].message.content
     if not text or not text.strip():
         raise RuntimeError("OpenAI returned an empty reply.")

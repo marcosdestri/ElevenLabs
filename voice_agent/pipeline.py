@@ -11,10 +11,10 @@ from voice_agent.tts import generate_voice
 
 
 def read_customer_input(prompt: str = "User: ") -> str:
-    """Step 1 — Input: read what the customer said.
+    """Step 1 — User input: capture the customer's message.
 
-    Today this is typed text in the CLI. The same function boundary is where
-    speech-to-text would plug in for a true voice-in experience.
+    CLI typing stands in for speech-to-text; swap this boundary only when
+    adding STT—downstream steps stay the same.
     """
     return input(prompt).strip()
 
@@ -24,19 +24,19 @@ def run_single_turn(
     read_input: Callable[[], str] | None = None,
     output_path: Path | None = None,
 ) -> None:
-    """Run one full turn: capture input, generate text reply, generate voice file."""
+    """Execute the three-stage pipeline once: User Input → Response → Voice."""
     settings.load_local_env()
 
-    # Step 1 — Input
+    # --- Stage 1: User input ---
     get_line = read_input or (lambda: read_customer_input())
-    user_message = get_line()
-    if not user_message:
+    customer_utterance = get_line()
+    if not customer_utterance:
         raise RuntimeError("Empty input; type a message after User: and press Enter.")
 
-    # Step 2 — Response (LLM)
-    assistant_text = generate_response(user_message)
-    print("AI:", assistant_text)
+    # --- Stage 2: Response generation (LLM; see llm.py) ---
+    assistant_reply = generate_response(customer_utterance)
+    print("AI:", assistant_reply)
 
-    # Step 3 — Voice (TTS)
-    audio_path = generate_voice(assistant_text, output_path)
+    # --- Stage 3: Voice output (TTS; see tts.py) ---
+    audio_path = generate_voice(assistant_reply, output_path)
     print(f"Saved audio to {audio_path.resolve()}")

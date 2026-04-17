@@ -1,101 +1,95 @@
 # AI Voice Customer Agent
 
-**A solutions-engineering prototype** of a voice-enabled customer interaction: one turn from **what the customer says** → **what the agent answers** → **how that answer sounds** when spoken aloud.
-
-It is intentionally small—easy to read, demo, and extend—but structured like the **core loop** you would reuse behind STT, telephony, or a web widget in production.
+**Demonstrates a scalable, customer-facing voice AI loop**—from what the customer expresses, to a model-generated answer, to spoken audio—so stakeholders can validate the **same integration pattern** that later plugs into STT, CRM, queues, and telephony.
 
 ---
 
-## Overview
+**Scan this first (≈30s)**
 
-**What this is:** a runnable spike that shows how **LLM reasoning** and **high-quality TTS** combine into a **voice interface** for customer scenarios—not a generic “text to MP3” script.
+| | |
+|--|--|
+| **What** | One-turn **voice support** prototype: typed input today; **LLM** + **TTS** out of the box. |
+| **Why** | De-risk **voice + AI** for support, IVR refresh, and automation **before** platform spend. |
+| **Stack** | Python · OpenAI Chat Completions · ElevenLabs · `pytest` (mocked APIs). |
 
-**Why it exists:** teams exploring **voice support**, **IVR modernization**, or **AI-assisted contact centers** need a credible vertical slice before buying platforms or wiring CRMs. This repo is that slice in code: clear steps, named outputs, and room to grow without rewriting from scratch.
-
-**Pipeline (one turn):**
-
-1. **Input** — what the customer communicates (typed in the CLI today; speech input later).
-2. **Response** — assistant text from **OpenAI** (`generate_response`), tuned for short, speakable answers.
-3. **Voice** — spoken audio from **ElevenLabs** (`generate_voice`), saved as **`voice_response.mp3`** at the project root.
-
----
-
-## Example interaction
-
-| Step | What happens (illustrative) |
-|------|------------------------------|
-| **Input** | Customer types: *“My order was supposed to arrive yesterday—can you help?”* |
-| **Response** | Model returns a concise, empathetic reply (e.g. acknowledges delay, offers next steps). |
-| **Voice** | That reply is synthesized to speech; you play **`voice_response.mp3`** locally. |
-
-In a pilot, the same three steps attach to **phone or chat**: STT → LLM (+ tools / KB) → streaming TTS—the architecture stays familiar.
-
----
-
-## Use cases
-
-- **Customer support** — Tier‑1 FAQs, order status, password resets: **consistent wording** and **voice** reduce load on live agents while keeping tone on-brand.
-- **Automation** — Turn events (shipment out, appointment booked) into **spoken** updates for dialers, kiosks, or field apps; the LLM layer personalizes phrasing from structured data.
-- **Voice assistants & concierge** — Hotels, banking, retail: natural confirmations and “what happens next” without recording hundreds of static audio clips.
+**Output file:** `voice_response.mp3` (project root).
 
 ---
 
 ## Architecture
 
-- **Input handling** — `read_customer_input()` (CLI); same boundary later receives text from STT.
-- **Response generation** — `generate_response()` in `voice_agent/llm.py` (OpenAI Chat Completions).
-- **Voice generation** — `generate_voice()` in `voice_agent/tts.py` (ElevenLabs REST → MP3).
+End-to-end pipeline for **each** customer turn:
 
-**Orchestration** — `voice_agent/pipeline.py` runs the three steps in order. **Configuration** — `voice_agent/settings.py` (env, defaults, `.env` loading). **CLI** — `voice_agent/cli.py` + `main.py` / `python -m voice_agent`.
+```text
+User Input  →  Response Generation  →  Voice Output
+```
+
+| Stage | Responsibility | In this repo |
+|-------|----------------|--------------|
+| **User Input** | Capture what the customer said (text today; audio later). | `read_customer_input()` in `voice_agent/pipeline.py` |
+| **Response Generation** | Turn utterance into assistant text safe to read aloud. | `generate_response()` in `voice_agent/llm.py` |
+| **Voice Output** | Render that text as speech customers can hear. | `generate_voice()` in `voice_agent/tts.py` → **`voice_response.mp3`** |
+
+**Orchestration:** `run_single_turn()` in `voice_agent/pipeline.py` runs the three stages in order. **Config:** `voice_agent/settings.py`. **CLI:** `voice_agent/cli.py` or `python main.py` / `python -m voice_agent`.
 
 ---
 
-## Why this matters
+## Example interaction
 
-**Voice is an interface, not a gimmick.** Many customers still **call** or use **hands-free** contexts; reading a wall of text is not always viable. Pairing an LLM with TTS lets you **iterate on wording and tone** quickly while proving integrations to stakeholders.
+**User input (typed after `User:`):**
 
-**Scalable story:** the same separation—**capture utterance → decide → render speech**—maps to queues, session stores, observability, and human handoff as the product matures. This prototype keeps that story **visible in the code**, not buried in one long script.
+> *“My subscription renewed at the wrong price yesterday—I need this corrected before the next billing cycle.”*
+
+**Assistant response (printed in terminal; illustrative):**
+
+> *“I understand you’re seeing an unexpected renewal price. Here’s what I can do: confirm the plan on your account, explain the charge you’re seeing, and outline how to request a billing review. Would you like me to start with your current plan name?”*
+
+**Voice output:** the same assistant text is sent to **ElevenLabs TTS**; you listen to **`voice_response.mp3`**.
+
+*In production, only the **input surface** changes (phone, app, kiosk); the middle and last stages stay the same shape.*
+
+---
+
+## Use cases
+
+- **Customer support** — Tier‑1 answers, order and billing questions, **spoken** self-serve that feels guided, not robotic.
+- **Automation** — Event-driven spoken updates (shipments, appointments) with **natural phrasing** instead of fixed recordings.
+- **Voice assistants** — Concierge, banking, retail: **one integration spine** for LLM + voice vendors.
+
+---
+
+## Why this shape (solutions view)
+
+**Voice is a product surface.** Many users still **call** or are **hands-free**; blocks of text are not always the right UX. This repo shows how **decisioning (LLM)** and **delivery (TTS)** stay **decoupled** from **capture (input)**—the same split you need for observability, compliance, and human handoff at scale.
+
+**Not over-built on purpose:** small codebase, clear files, so a hiring manager or buyer sees **systems thinking** (boundaries, naming, test hooks) without wading through frameworks.
 
 ---
 
 ## How to run
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
+python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env        # add OPENAI_API_KEY and ELEVENLABS_API_KEY
-python main.py              # or: python -m voice_agent
+cp .env.example .env   # set OPENAI_API_KEY and ELEVENLABS_API_KEY
+python main.py         # or: python -m voice_agent
 ```
-
-When prompted with `User:`, type a customer message and press Enter. On success you get terminal output plus **`voice_response.mp3`** in the project folder.
-
-**Tests (no live APIs):**
 
 ```bash
-python -m pytest
-```
-
-**Project layout (high level):**
-
-```text
-voice_agent/   settings, llm, tts, pipeline, cli
-tests/         pytest with mocks
-main.py        entry shim
+python -m pytest       # fast; no real API calls
 ```
 
 ---
 
 ## Next steps
 
-| Direction | What it unlocks |
-|-----------|-----------------|
-| **Conversation memory** | Multi-turn context, summarization, and handoff payloads to human agents. |
-| **External APIs & tools** | Order lookup, ticketing, calendars—ground responses in **your** systems, not only the model. |
-| **Speech input (STT)** | True voice-in / voice-out; swap the input function, keep response + voice modules. |
-| **Streaming & latency** | Streamed LLM + streamed TTS for tolerable real-time phone and web UX. |
-| **Channels & scale** | WebRTC, SIP, or messaging surfaces; horizontal workers, rate limits, and observability per tenant. |
+| Track | Outcome |
+|-------|---------|
+| **Memory & APIs** | Multi-turn context; tools for orders, tickets, calendars. |
+| **Speech in** | STT at the input boundary; keep response + voice modules. |
+| **Streaming & channels** | Low-latency streams; WebRTC / SIP / messaging. |
+| **Scale & ops** | Per-tenant config, rate limits, tracing, cost per turn. |
 
 ---
 
-*Prototype only—meant to align engineering, product, and buyers on a **voice AI customer journey** before production hardening.*
+*Prototype for alignment and technical spikes—not production-hardened software.*
