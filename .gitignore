@@ -1,4 +1,7 @@
+voice_reply.mp3
 response.mp3
+.pytest_cache/
+.ruff_cache/
 .venv/
 __pycache__/
 *.pyc
