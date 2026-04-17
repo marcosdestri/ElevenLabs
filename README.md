@@ -2,7 +2,22 @@
 
 **Demonstrates a scalable, customer-facing voice AI loop**—from what the customer expresses, to a model-generated answer, to spoken audio—so stakeholders can validate the **same integration pattern** that later plugs into STT, CRM, queues, and telephony.
 
-**Together with the section below**, this project also tells an **enterprise orchestration** story: connecting sales data, call transcripts, and AI to update systems automatically—plus how **voice** fits as another channel on top of that intelligence.
+**Together with the n8n workflow in this repo**, the story covers **enterprise orchestration** (monday.com, Snowflake, Gong data, AI) **and** how **voice** can sit on top as another customer-facing channel.
+
+---
+
+## Repository structure
+
+This repository is split into **two** top-level folders—one for the **runnable Python prototype**, one for the **automation definition** you can import into n8n.
+
+| Folder | Contents | Who uses it |
+|--------|----------|-------------|
+| **`python-agent/`** | `voice_agent/` package, `main.py`, `tests/`, `requirements.txt`, `.env.example`. | Engineers running the **voice CLI** locally or in CI. |
+| **`n8n-workflow/`** | `sales-intelligence.json` — sanitized export of the **Enrich WaitingRoom Latam** workflow. | Solutions / ops importing the graph into **n8n** and wiring credentials there. |
+
+At the **root** you also have **`README.md`** (this file), **`LICENSE`**, **`pyproject.toml`** (pytest + ruff scoped to `python-agent/`), and **`.gitignore`**.
+
+**Voice output path:** `python-agent/voice_response.mp3` (created when you run the CLI from `python-agent/`).
 
 ---
 
@@ -10,117 +25,117 @@
 
 | | |
 |--|--|
-| **What** | **(1)** One-turn **voice** prototype: input → LLM → TTS → `voice_response.mp3`. **(2)** Sanitized **n8n** export: `docs/workflows/sales-intelligence.json` (monday.com · Snowflake · Gong data · AI). |
+| **What** | **(1)** One-turn **voice** prototype in `python-agent/`: input → LLM → TTS. **(2)** **`n8n-workflow/sales-intelligence.json`** — monday.com · Snowflake · Gong transcript data · AI agent. |
 | **Why** | De-risk **voice + AI** and show **multi-system automation** before heavy platform spend. |
-| **Stack** | Python · OpenAI · ElevenLabs · `pytest` · workflow pattern alignable with **n8n** (or similar). |
-
-**Output file:** `voice_response.mp3` (project root).
+| **Stack** | Python · OpenAI · ElevenLabs · `pytest` · **n8n** (workflow JSON). |
 
 ---
 
-## Architecture
+## Architecture (Python voice agent)
 
-End-to-end pipeline for **each** customer turn:
+End-to-end pipeline for **each** customer turn inside `python-agent/`:
 
 ```text
 User Input  →  Response Generation  →  Voice Output
 ```
 
-| Stage | Responsibility | In this repo |
-|-------|----------------|--------------|
-| **User Input** | Capture what the customer said (text today; audio later). | `read_customer_input()` in `voice_agent/pipeline.py` |
-| **Response Generation** | Turn utterance into assistant text safe to read aloud. | `generate_response()` in `voice_agent/llm.py` |
-| **Voice Output** | Render that text as speech customers can hear. | `generate_voice()` in `voice_agent/tts.py` → **`voice_response.mp3`** |
+| Stage | Responsibility | Location |
+|-------|----------------|----------|
+| **User Input** | Capture what the customer said (text today; audio later). | `python-agent/voice_agent/pipeline.py` → `read_customer_input()` |
+| **Response Generation** | Turn utterance into assistant text safe to read aloud. | `python-agent/voice_agent/llm.py` → `generate_response()` |
+| **Voice Output** | Render that text as speech. | `python-agent/voice_agent/tts.py` → `generate_voice()` → **`voice_response.mp3`** |
 
-**Orchestration:** `run_single_turn()` in `voice_agent/pipeline.py` runs the three stages in order. **Config:** `voice_agent/settings.py`. **CLI:** `voice_agent/cli.py` or `python main.py` / `python -m voice_agent`.
+**Orchestration:** `run_single_turn()` in `pipeline.py`. **Config:** `settings.py`. **CLI:** `cli.py` or `python main.py` / `python -m voice_agent` **from `python-agent/`.**
 
 ---
 
 ## Real-world use case: Sales Call Intelligence Automation
 
-**Workflow in this repo:** a **sanitized n8n export** of *Enrich WaitingRoom Latam* lives at  
-[`docs/workflows/sales-intelligence.json`](docs/workflows/sales-intelligence.json).  
-Credentials, webhook paths, and sample payloads were **removed or redacted** so the file is safe to share; re-bind secrets inside your own n8n instance.
+**Workflow file:** [`n8n-workflow/sales-intelligence.json`](n8n-workflow/sales-intelligence.json) (sanitized n8n export of *Enrich WaitingRoom Latam*).  
+Credentials, webhook paths, and sample payloads were **removed or redacted**; configure secrets in your own n8n instance after import.
 
 ### What the workflow does (step by step)
 
-1. **Webhook** — A **monday.com** event (e.g. new item in a sales / “waiting room” board) starts the run; **Respond to Webhook** answers the integration handshake.
-2. **Get item values** — Pulls the pulse from monday so downstream steps know the deal context.
-3. **Split opportunity ID** — Code reads the **Salesforce opportunity ID** from the board (so Snowflake queries are keyed correctly).
-4. **Get Opportunity info** — **Snowflake** reads **Salesforce opportunity** data from the warehouse (`RAW_SALESFORCE_OPPORTUNITIES`).
-5. **Get last conversation ID** — Snowflake joins to the latest **Gong-linked** conversation for that opportunity.
-6. **Validate if have gong calls on SFDC** — If there is **no** Gong call on record, the flow posts **Add update without agent analysis** on monday and stops—so the board never looks “silent” without explanation.
-7. **Get Call Transcript** — When a call exists, Snowflake loads the **Gong transcript** for that conversation.
-8. **concatenate the transcript** — Code turns the raw transcript blocks into one clean string for the model.
-9. **AI Agent** (+ **OpenAI Chat Model**, **Redis Chat Memory**) — Runs a **Command of the Message® + MEDDPICC** style prompt: MEDDPICC gaps, value conversation, SE attack plan, trap-setting questions—**in the same language as the transcript**.
-10. **Add opty summary as update to item** — Writes the analysis back to the **monday** item, including a link to the **Gong** call—so the team sees insight **where they already work**.
+1. **Webhook** — A **monday.com** event (e.g. new item on a sales / “waiting room” board) starts the run; **Respond to Webhook** completes the integration handshake.
+2. **Get item values** — Loads the monday pulse so later steps have deal context.
+3. **Split opportunity ID** — Code reads the **Salesforce opportunity ID** from the board for Snowflake keys.
+4. **Get Opportunity info** — **Snowflake** reads **Salesforce opportunity** rows (`RAW_SALESFORCE_OPPORTUNITIES`).
+5. **Get last conversation ID** — Snowflake resolves the latest **Gong-linked** conversation for that opportunity.
+6. **Validate if have gong calls on SFDC** — If there is **no** Gong call, **Add update without agent analysis** posts to monday and the branch stops.
+7. **Get Call Transcript** — Loads the **Gong transcript** from Snowflake when a call exists.
+8. **concatenate the transcript** — Formats transcript blocks into one model-ready string.
+9. **AI Agent** (+ **OpenAI Chat Model**, **Redis Chat Memory**) — **Command of the Message® + MEDDPICC** analysis in the transcript’s language.
+10. **Add opty summary as update to item** — Writes the analysis to monday, with a **Gong** call link.
 
 ### Systems involved
 
-| System | Role in this workflow |
-|--------|------------------------|
-| **monday.com** | **Trigger + destination**: board events in, structured updates out. |
-| **Snowflake** | **Data hub**: Salesforce opportunities, Gong conversation IDs, and **call transcripts** (no separate “Gong API” node—the data is already modeled in the warehouse). |
-| **Gong** | **Content**: what was actually said on the call (via transcript tables in Snowflake). |
-| **AI agent (OpenAI in n8n)** | **Reasoning layer**: MEDDPICC / value framing on top of CRM + transcript context. |
+| System | Role |
+|--------|------|
+| **monday.com** | Trigger + destination for updates. |
+| **Snowflake** | Salesforce + Gong transcript data in the warehouse. |
+| **Gong** | What was said on the call (via Snowflake tables). |
+| **AI agent** | Structured sales intelligence on top of CRM + transcript. |
 
-### Why this matters for the business
+### Why it matters
 
-- **Waiting-room deals move faster** — New requests get **automatic enrichment** instead of waiting for a human to open Salesforce, Gong, and monday in three tabs.
-- **Coaching at scale** — MEDDPICC-style output is **repeatable** across many calls, not only when a director has time to listen.
-- **Single source of truth on the board** — Reps and leadership see **one update thread** tied to the opportunity and the call recording.
+- Faster **waiting-room** enrichment without tab-hopping across Salesforce, Gong, and monday.
+- **Repeatable** MEDDPICC-style insight at scale.
+- **One thread** on the board tied to the opportunity and recording.
 
-### How this repo fits
+### How the two folders connect
 
-- **`docs/workflows/sales-intelligence.json`** — Shows **multi-system orchestration** the way a Solutions Engineer ships it in **n8n** (nodes, branches, enterprise connectors).
-- **`voice_agent/`** — Same **input → model → output** discipline for **spoken** customer experiences (`voice_response.mp3`); voice becomes another **surface** on top of the same intelligence stack.
+- **`n8n-workflow/`** — Shows **multi-system orchestration** as shipped in **n8n** (nodes, branches, connectors).
+- **`python-agent/`** — Same **input → model → output** pattern for **spoken** UX; voice is another **surface** on the same intelligence story.
 
 ---
 
-## Example interaction
+## Example interaction (voice agent)
 
-**User input (typed after `User:`):**
+**User input (after `User:`):**
 
 > *“My subscription renewed at the wrong price yesterday—I need this corrected before the next billing cycle.”*
 
-**Assistant response (printed in terminal; illustrative):**
+**Assistant response (terminal; illustrative):**
 
-> *“I understand you’re seeing an unexpected renewal price. Here’s what I can do: confirm the plan on your account, explain the charge you’re seeing, and outline how to request a billing review. Would you like me to start with your current plan name?”*
+> *“I understand you’re seeing an unexpected renewal price…”*
 
-**Voice output:** the same assistant text is sent to **ElevenLabs TTS**; you listen to **`voice_response.mp3`**.
-
-*In production, only the **input surface** changes (phone, app, kiosk); the middle and last stages stay the same shape.*
+**Voice output:** ElevenLabs produces **`python-agent/voice_response.mp3`**.
 
 ---
 
 ## Use cases
 
-- **Customer support** — Tier‑1 answers, order and billing questions, **spoken** self-serve that feels guided, not robotic.
-- **Automation** — Event-driven spoken updates (shipments, appointments) with **natural phrasing** instead of fixed recordings.
-- **Voice assistants** — Concierge, banking, retail: **one integration spine** for LLM + voice vendors.
+- **Customer support** — Tier‑1 answers with **spoken** self-serve.
+- **Automation** — Event-driven spoken updates with natural phrasing.
+- **Voice assistants** — One spine for LLM + voice vendors.
 
 ---
 
 ## Why this shape (solutions view)
 
-**Voice is a product surface.** Many users still **call** or are **hands-free**; blocks of text are not always the right UX. This repo shows how **decisioning (LLM)** and **delivery (TTS)** stay **decoupled** from **capture (input)**—the same split you need for observability, compliance, and human handoff at scale.
-
-**Not over-built on purpose:** small codebase, clear files, so a hiring manager or buyer sees **systems thinking** (boundaries, naming, test hooks) without wading through frameworks.
+**Voice is a product surface.** This repo keeps **capture**, **reasoning**, and **speech output** in separate steps—what you need for observability, compliance, and handoff at scale—whether the middle box is this Python agent or an n8n AI node.
 
 ---
 
 ## How to run
 
+**Voice agent** (from repo root):
+
 ```bash
+cd python-agent
 python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env   # set OPENAI_API_KEY and ELEVENLABS_API_KEY
+cp .env.example .env   # add OPENAI_API_KEY and ELEVENLABS_API_KEY
 python main.py         # or: python -m voice_agent
 ```
 
+**Tests** (from **repository root**, uses root `pyproject.toml`):
+
 ```bash
-python -m pytest       # fast; no real API calls
+python -m pytest
 ```
+
+**n8n workflow:** import `n8n-workflow/sales-intelligence.json` in n8n, then attach Monday, Snowflake, OpenAI, and Redis credentials in the UI.
 
 ---
 

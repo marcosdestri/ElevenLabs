@@ -1,10 +1,17 @@
-voice_response.mp3
-voice_reply.mp3
+# Python agent
+python-agent/.venv/
+python-agent/__pycache__/
+python-agent/**/__pycache__/
+python-agent/*.pyc
+python-agent/.env
+python-agent/.env.save
+python-agent/voice_response.mp3
+python-agent/voice_reply.mp3
+python-agent/response.mp3
+
+# Repo root
+.env
+.env.save
 response.mp3
 .pytest_cache/
 .ruff_cache/
-.venv/
-__pycache__/
-*.pyc
-.env
-.env.save
