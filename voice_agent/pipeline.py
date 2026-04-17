@@ -1,4 +1,9 @@
-"""Orchestrates one customer turn: input → response → voice."""
+"""Orchestrates one customer turn: input → response → voice.
+
+Multi-system workflows (CRM, warehouse, call recordings, AI steps) are often
+orchestrated visually with tools like **n8n**; this module is the same idea in
+minimal code—linear stages with clear handoffs between boundaries.
+"""
 
 from __future__ import annotations
 
