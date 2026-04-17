@@ -1,0 +1,5 @@
+requests>=2.31.0,<3
+# urllib3 2.x avisa com o Python do macOS (LibreSSL); 1.x evita o NotOpenSSLWarning
+urllib3>=1.26.18,<2
+openai>=1.40.0,<2
+python-dotenv>=1.0.0,<2
