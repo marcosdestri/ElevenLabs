@@ -1,4 +1,8 @@
-# Monorepo: Python agent in python-agent/; n8n export in n8n-workflow/
+[project]
+name = "enterprise-ai-workflows"
+description = "Enterprise AI workflow demos: voice customer agent (Python) + sales call intelligence automation (n8n)"
+readme = "README.md"
+requires-python = ">=3.9"
 
 [tool.pytest.ini_options]
 testpaths = ["python-agent/tests"]
